@@ -58,7 +58,7 @@ export default function History() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <header className="bg-white shadow-sm">
+      <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-30">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">PDF处理系统</h1>
           <Link href="/" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
@@ -66,6 +66,8 @@ export default function History() {
           </Link>
         </div>
       </header>
+
+      <div className="pt-16"></div>
 
       <main className="container mx-auto px-4 py-8 flex-grow">
         <div className="max-w-4xl mx-auto">
