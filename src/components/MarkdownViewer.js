@@ -5,6 +5,38 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 
+// 文本预处理函数，用于保护特定的列表格式，防止被自动转换
+const preprocessMarkdown = (text) => {
+  if (!text) return text;
+  
+  // 添加一个不可见的字符到")"前面，防止被识别为列表
+  // 这样类似 "1) My love..." 的格式会被保留
+  return text.replace(/^(\d+)(\))/gm, '$1\u200B$2');
+};
+
+// 自定义remark插件，用于保留原始列表格式
+const remarkPreserveListFormat = () => {
+  return (tree) => {
+    // 递归遍历语法树
+    function visit(node) {
+      // 如果是有序列表的列表项，检查原始文本以保留格式
+      if (node.type === 'list' && node.ordered) {
+        // 为列表项添加一个标记，表示使用原始格式
+        node.data = node.data || {};
+        node.data.hProperties = node.data.hProperties || {};
+        node.data.hProperties.preserveFormat = true;
+      }
+      
+      // 递归处理子节点
+      if (node.children) {
+        node.children.forEach(visit);
+      }
+    }
+    
+    visit(tree);
+  };
+};
+
 const MarkdownViewer = ({ content, basePath }) => {
   if (!content) return null;
 
@@ -24,9 +56,20 @@ const MarkdownViewer = ({ content, basePath }) => {
       </div>
       <div className="markdown-content">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
+          remarkPlugins={[remarkPreserveListFormat, remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex, rehypeRaw]}
           transformImageUri={transformImageUri}
+          remarkRehypeOptions={{ 
+            allowDangerousHtml: true,
+            // 添加配置以保留原始格式
+            clobberPrefix: '',
+            footnoteLabel: '脚注',
+            footnoteBackLabel: '返回',
+            // 自定义列表处理
+            listItem: {
+              useOriginalFormat: true
+            }
+          }}
           components={{
             // 自定义表格渲染
             table: ({ node, ...props }) => (
@@ -66,7 +109,7 @@ const MarkdownViewer = ({ content, basePath }) => {
             ),
           }}
         >
-          {content}
+          {preprocessMarkdown(content)}
         </ReactMarkdown>
       </div>
     </div>

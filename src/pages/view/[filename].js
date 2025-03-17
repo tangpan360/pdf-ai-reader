@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import EditableMarkdown from '../../components/EditableMarkdown';
+import CopyableEditableMarkdown from '../../components/CopyableEditableMarkdown';
 import axios from 'axios';
 
 export default function ViewFile() {
@@ -212,7 +212,7 @@ export default function ViewFile() {
                 </div>
               )}
               
-              <EditableMarkdown
+              <CopyableEditableMarkdown
                 initialContent={markdownContent}
                 onSave={handleSave}
                 basePath={basePath}

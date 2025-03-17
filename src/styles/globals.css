@@ -65,4 +65,54 @@ body {
 
 .markdown-content th {
   @apply bg-gray-100;
+}
+
+/* 数学公式相关样式 */
+.math-wrapper {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.math-wrapper:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.math-wrapper .copy-buttons {
+  z-index: 1000 !important;
+}
+
+/* KaTeX 公式容器样式调整 */
+.katex-display {
+  position: relative !important;
+  overflow: visible !important;
+  padding: 0.5rem 0;
+}
+
+/* 确保公式复制按钮在悬停时可见 */
+.math-wrapper:hover .copy-buttons,
+.katex-display:hover + .copy-buttons,
+.katex:hover + .copy-buttons,
+.katex-display:hover ~ .copy-buttons,
+.katex-html:hover ~ .copy-buttons {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* 添加额外的样式确保$$公式的复制按钮可见 */
+.katex-display {
+  margin-top: 1rem !important;
+  margin-bottom: 1rem !important;
+}
+
+/* 确保公式容器有足够的空间显示复制按钮 */
+.katex-display + .copy-buttons {
+  top: 0 !important;
+}
+
+/* 确保math-wrapper内的复制按钮正确定位 */
+.math-wrapper > .copy-buttons {
+  position: absolute !important;
+  top: 0.5rem !important;
+  right: 0.5rem !important;
+  z-index: 1000 !important;
 } 

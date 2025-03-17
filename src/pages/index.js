@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import FileUploader from '../components/FileUploader';
 import ProcessingStatus from '../components/ProcessingStatus';
-import EditableMarkdown from '../components/EditableMarkdown';
+import CopyableEditableMarkdown from '../components/CopyableEditableMarkdown';
 import axios from 'axios';
 
 export default function Home() {
@@ -16,23 +16,59 @@ export default function Home() {
   const [saveStatus, setSaveStatus] = useState('');
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // 页面加载时从 localStorage 恢复状态
+  // 页面加载时从 localStorage 恢复状态，添加更强健的状态恢复逻辑
   useEffect(() => {
     const savedState = localStorage.getItem('pdfProcessorState');
     if (savedState) {
-      const state = JSON.parse(savedState);
-      setCurrentFile(state.currentFile);
-      setIsProcessing(state.isProcessing);
-      
-      if (state.markdownContent) {
-        setMarkdownContent(state.markdownContent);
-        setBasePath(state.basePath);
-      } else if (state.currentFile && state.isProcessing) {
-        // 如果有文件正在处理但没有内容，检查处理状态
-        checkProcessingStatus(state.currentFile);
+      try {
+        const state = JSON.parse(savedState);
+        console.log("恢复状态:", state); // 调试日志
+        
+        if (state.currentFile) {
+          setCurrentFile(state.currentFile);
+        }
+        
+        if (state.isProcessing !== undefined) {
+          setIsProcessing(state.isProcessing);
+        }
+        
+        if (state.markdownContent) {
+          setMarkdownContent(state.markdownContent);
+          setBasePath(state.basePath || '');
+        } else if (state.currentFile && state.isProcessing) {
+          // 如果有文件正在处理但没有内容，检查处理状态
+          checkProcessingStatus(state.currentFile);
+        }
+        
+        if (state.error) {
+          setError(state.error);
+        }
+      } catch (err) {
+        console.error("恢复状态时出错:", err);
+        localStorage.removeItem('pdfProcessorState');
       }
     }
   }, []);
+
+  // 添加轮询机制，定期检查处理状态
+  useEffect(() => {
+    let intervalId;
+    
+    if (currentFile && isProcessing) {
+      console.log("启动轮询检查处理状态，文件:", currentFile); // 调试日志
+      
+      // 每5秒钟检查一次处理状态
+      intervalId = setInterval(() => {
+        checkProcessingStatus(currentFile);
+      }, 5000);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [currentFile, isProcessing]);
 
   // 添加ESC键监听，退出全屏
   useEffect(() => {
@@ -81,20 +117,34 @@ export default function Home() {
     };
   }, [isFullScreen]);
 
-  // 保存状态到 localStorage
+  // 改进保存状态的函数，确保所有关键字段都被保存
   const saveState = (state) => {
-    localStorage.setItem('pdfProcessorState', JSON.stringify(state));
+    // 确保合并现有状态，而不是完全覆盖
+    const currentState = JSON.parse(localStorage.getItem('pdfProcessorState') || '{}');
+    const newState = { ...currentState, ...state };
+    
+    console.log("保存状态:", newState); // 调试日志
+    
+    localStorage.setItem('pdfProcessorState', JSON.stringify(newState));
   };
 
-  // 检查处理状态
+  // 改进检查处理状态的函数，添加更多调试信息和错误处理
   const checkProcessingStatus = async (filename) => {
+    if (!filename) {
+      console.error("checkProcessingStatus: 文件名为空");
+      return;
+    }
+    
+    console.log("检查处理状态:", filename); // 调试日志
+    
     try {
       // 尝试获取内容，如果成功则表示处理已完成
       const response = await axios.get(`/api/content?filename=${encodeURIComponent(filename)}`);
       
       if (response.data.success) {
+        console.log("处理完成，加载内容:", filename);
         setMarkdownContent(response.data.content);
-        setBasePath(response.data.basePath);
+        setBasePath(response.data.basePath || '');
         setIsProcessing(false);
         
         // 更新保存的状态
@@ -102,24 +152,48 @@ export default function Home() {
           currentFile: filename,
           isProcessing: false,
           markdownContent: response.data.content,
-          basePath: response.data.basePath
+          basePath: response.data.basePath || ''
         });
       } else {
-        // 内容获取失败，可能仍在处理中
+        // 内容获取失败，可能仍在处理中，保持处理状态
+        console.log("内容获取失败，保持处理状态:", filename);
+        
+        // 确保文件名被保存
+        setCurrentFile(filename);
         setIsProcessing(true);
+        
+        // 更新保存状态，确保文件名存在
+        saveState({
+          currentFile: filename,
+          isProcessing: true
+        });
       }
     } catch (err) {
-      // 出错时保持处理状态
-      console.error('检查处理状态时出错:', err);
+      // 处理错误，但保持处理状态
+      console.error(`检查处理状态时出错(${filename}):`, err);
+      
+      // 确保文件名被保存
+      setCurrentFile(filename);
+      setIsProcessing(true);
+      
+      // 更新保存状态
+      saveState({
+        currentFile: filename,
+        isProcessing: true,
+        error: `检查处理状态时出错: ${err.message}`
+      });
     }
   };
 
+  // 改进上传成功的处理，确保文件名被正确保存
   const handleUploadSuccess = (filename) => {
+    console.log("上传成功:", filename); // 调试日志
+    
     setCurrentFile(filename);
     setMarkdownContent('');
     setError('');
     
-    // 保存状态
+    // 保存状态，确保包含文件名
     saveState({
       currentFile: filename,
       isProcessing: false,
@@ -128,13 +202,16 @@ export default function Home() {
     });
   };
 
+  // 改进处理开始的处理，确保状态中包含文件名
   const handleProcessingStart = () => {
+    console.log("开始处理文件:", currentFile); // 调试日志
+    
     setIsProcessing(true);
     setError('');
     
-    // 保存状态
+    // 保存状态，确保包含文件名
     saveState({
-      currentFile,
+      currentFile: currentFile, // 明确使用当前的文件名
       isProcessing: true,
       markdownContent: '',
       basePath: ''
@@ -142,45 +219,66 @@ export default function Home() {
   };
 
   const handleProcessingComplete = (data) => {
+    console.log("处理完成:", data); // 调试日志
+    
     setIsProcessing(false);
     
     if (data.success) {
       // 触发历史记录刷新
       setRefreshTrigger(prev => prev + 1);
       
-      // 加载Markdown内容
-      loadMarkdownContent(data.filename);
-    } else {
-      setError(data.error || '处理PDF时出错');
+      // 确保文件名正确
+      if (data.filename && (!currentFile || currentFile !== data.filename)) {
+        setCurrentFile(data.filename);
+      }
       
-      // 保存错误状态
+      // 加载Markdown内容
+      loadMarkdownContent(data.filename || currentFile);
+    } else {
+      const errorMessage = data.error || '处理PDF时出错';
+      setError(errorMessage);
+      
+      // 保存错误状态，确保包含文件名
       saveState({
-        currentFile,
+        currentFile: currentFile || data.filename,
         isProcessing: false,
         markdownContent: '',
         basePath: '',
-        error: data.error || '处理PDF时出错'
+        error: errorMessage
       });
     }
   };
 
   const loadMarkdownContent = async (filename) => {
+    if (!filename) {
+      console.error("loadMarkdownContent: 文件名为空");
+      setError("无法加载内容：文件名缺失");
+      return;
+    }
+    
+    console.log("加载Markdown内容:", filename); // 调试日志
+    
     try {
       const response = await axios.get(`/api/content?filename=${encodeURIComponent(filename)}`);
       
       if (response.data.success) {
+        console.log("内容加载成功:", filename);
         setMarkdownContent(response.data.content);
-        setBasePath(response.data.basePath);
+        setBasePath(response.data.basePath || '');
+        setError(''); // 清除可能存在的错误
         
         // 保存状态
         saveState({
           currentFile: filename,
           isProcessing: false,
           markdownContent: response.data.content,
-          basePath: response.data.basePath
+          basePath: response.data.basePath || '',
+          error: '' // 清除错误
         });
       } else {
-        setError(response.data.error || '加载Markdown内容失败');
+        const errorMessage = response.data.error || '加载Markdown内容失败';
+        console.error("内容加载失败:", errorMessage);
+        setError(errorMessage);
         
         // 保存错误状态
         saveState({
@@ -188,12 +286,13 @@ export default function Home() {
           isProcessing: false,
           markdownContent: '',
           basePath: '',
-          error: response.data.error || '加载Markdown内容失败'
+          error: errorMessage
         });
       }
     } catch (err) {
-      console.error('加载Markdown内容时出错:', err);
-      setError('加载Markdown内容时出错: ' + err.message);
+      const errorMessage = '加载Markdown内容时出错: ' + err.message;
+      console.error(errorMessage);
+      setError(errorMessage);
       
       // 保存错误状态
       saveState({
@@ -201,7 +300,7 @@ export default function Home() {
         isProcessing: false,
         markdownContent: '',
         basePath: '',
-        error: '加载Markdown内容时出错: ' + err.message
+        error: errorMessage
       });
     }
   };
@@ -364,7 +463,7 @@ export default function Home() {
                 </div>
               )}
               
-              <EditableMarkdown
+              <CopyableEditableMarkdown
                 initialContent={markdownContent}
                 onSave={handleSave}
                 basePath={basePath}
