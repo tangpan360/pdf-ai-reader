@@ -3,7 +3,7 @@ import React from 'react';
 const ProcessingStatus = ({ isProcessing, filename }) => {
   if (!isProcessing) return null;
 
-  // 安全处理文件名，确保即使文件名为空也能显示合理的信息
+  // 确保文件名有值时才显示
   const displayFilename = filename ? filename : '文件';
 
   return (
