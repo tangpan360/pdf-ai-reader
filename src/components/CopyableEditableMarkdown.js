@@ -491,6 +491,79 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
       // 获取纯文本内容
       return tempDiv.textContent;
     }, []);
+
+    // 处理引用该段
+    const handleQuoteSection = useCallback((e) => {
+      e.stopPropagation();
+      
+      // 如果有父元素，尝试获取Markdown源码内容
+      if (parentElement && parentElement.current) {
+        const element = parentElement.current;
+        
+        // 临时隐藏所有复制按钮
+        const allButtons = document.querySelectorAll('.copy-buttons, .inline-math-copy-buttons, .copy-button');
+        const originalDisplayStyles = [];
+        
+        // 保存原始显示状态并隐藏按钮
+        allButtons.forEach(button => {
+          originalDisplayStyles.push(button.style.display);
+          button.style.display = 'none';
+        });
+        
+        // 创建一个临时的克隆元素
+        const clonedElement = element.cloneNode(true);
+        document.body.appendChild(clonedElement);
+        clonedElement.style.position = 'absolute';
+        clonedElement.style.left = '-9999px';
+        
+        // 从克隆元素中移除所有复制按钮
+        const clonedButtons = clonedElement.querySelectorAll('.copy-buttons, .inline-math-copy-buttons, .copy-button');
+        clonedButtons.forEach(button => button.remove());
+        
+        let finalMarkdown = '';
+        
+        // 针对特定类型的元素处理
+        if (textRef.current.elementType === 'math' || textRef.current.elementType === 'inlineMath') {
+          // 对于数学公式，直接使用传入的Markdown
+          finalMarkdown = textRef.current.markdownText;
+        } else {
+          // 查找对应的Markdown源码
+          const markdownSource = findMarkdownSource(getPureTextContent(clonedElement));
+          if (markdownSource) {
+            // 优先使用从源代码中找到的Markdown
+            finalMarkdown = markdownSource;
+          } else {
+            // 回退到传入的Markdown
+            finalMarkdown = textRef.current.markdownText;
+          }
+        }
+        
+        // 清理克隆元素
+        document.body.removeChild(clonedElement);
+        
+        // 恢复按钮显示状态
+        allButtons.forEach((button, index) => {
+          if (index < originalDisplayStyles.length) {
+            button.style.display = originalDisplayStyles[index];
+          }
+        });
+        
+        console.log('引用段落:', finalMarkdown);
+        
+        // 查找WebsiteAssistant组件的引用函数
+        // 使用全局事件触发引用功能
+        const customEvent = new CustomEvent('quote-section', { 
+          detail: { text: finalMarkdown } 
+        });
+        window.dispatchEvent(customEvent);
+      } else {
+        // 回退到传入的Markdown
+        const customEvent = new CustomEvent('quote-section', { 
+          detail: { text: textRef.current.markdownText } 
+        });
+        window.dispatchEvent(customEvent);
+      }
+    }, [parentElement, findMarkdownSource, getPureTextContent]);
     
     // 处理复制文本
     const handleCopyText = useCallback((e) => {
@@ -588,25 +661,63 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
         const clonedButtons = clonedElement.querySelectorAll('.copy-buttons, .inline-math-copy-buttons, .copy-button');
         clonedButtons.forEach(button => button.remove());
         
-        // 获取文本元素 - 根据元素类型选择合适的选择器
-        let selector = 'p, h1, h2, h3, h4, h5, h6';
-        if (textRef.current.elementType === 'heading') {
-          // 对于标题，只选择相应的标题元素
-          selector = `h${textRef.current.headingLevel}`;
-        } else if (textRef.current.elementType === 'listItem') {
-          // 对于列表项，不需要特殊处理
-          selector = '*';
-        }
+        let finalMarkdown = '';
         
-        const textElement = clonedElement.querySelector(selector);
-        let pureText = '';
-        
-        if (textElement) {
-          // 获取纯文本内容
-          pureText = textElement.textContent;
+        // 针对特定类型的元素处理
+        if (textRef.current.elementType === 'math' || textRef.current.elementType === 'inlineMath') {
+          // 对于数学公式，直接使用传入的Markdown
+          finalMarkdown = textRef.current.markdownText;
         } else {
-          // 如果找不到特定的文本元素，获取整个元素的文本内容
-          pureText = clonedElement.textContent;
+          // 获取文本元素 - 根据元素类型选择合适的选择器
+          let selector = 'p, h1, h2, h3, h4, h5, h6';
+          if (textRef.current.elementType === 'heading') {
+            // 对于标题，只选择相应的标题元素
+            selector = `h${textRef.current.headingLevel}`;
+          } else if (textRef.current.elementType === 'listItem') {
+            // 对于列表项，不需要特殊处理
+            selector = '*';
+          }
+          
+          const textElement = clonedElement.querySelector(selector);
+          let pureText = '';
+          
+          if (textElement) {
+            // 获取纯文本内容
+            pureText = textElement.textContent;
+          } else {
+            // 如果找不到特定的文本元素，获取整个元素的文本内容
+            pureText = clonedElement.textContent;
+          }
+        
+          // 根据元素类型和纯文本内容查找Markdown源码
+          const markdownSource = findMarkdownSource(pureText, textRef.current.elementType, textRef.current.headingLevel);
+          
+          console.log('复制Markdown源码:', {
+            pureText,
+            elementType: textRef.current.elementType, 
+            headingLevel: textRef.current.headingLevel,
+            markdownSource
+          });
+          
+          // 根据元素类型格式化最终的Markdown文本
+          finalMarkdown = markdownSource;
+          
+          if (textRef.current.elementType === 'heading') {
+            // 如果是标题，添加#号
+            const headingMarker = '#'.repeat(textRef.current.headingLevel);
+            // 检查markdownSource是否已经包含标题标记
+            if (!markdownSource.startsWith('#')) {
+              finalMarkdown = `${headingMarker} ${markdownSource}`;
+            } else {
+              finalMarkdown = markdownSource;
+            }
+          } else if (textRef.current.elementType === 'listItem') {
+            // 如果是列表项，检查是否已经包含列表标记
+            if (!finalMarkdown.match(/^[\s]*([-*]|\d+[\.\)])\s+/)) {
+              // 添加列表标记（默认为无序列表）
+              finalMarkdown = `- ${finalMarkdown}`;
+            }
+          }
         }
         
         // 清理克隆元素
@@ -619,63 +730,44 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
           }
         });
         
-        // 根据元素类型和纯文本内容查找Markdown源码
-        const markdownSource = findMarkdownSource(pureText, textRef.current.elementType, textRef.current.headingLevel);
-        
-        console.log('复制Markdown源码:', {
-          pureText,
-          elementType: textRef.current.elementType, 
-          headingLevel: textRef.current.headingLevel,
-          markdownSource
-        });
-        
-        // 根据元素类型格式化最终的Markdown文本
-        let finalMarkdown = markdownSource;
-        
-        if (textRef.current.elementType === 'heading') {
-          // 如果是标题，添加#号
-          const headingMarker = '#'.repeat(textRef.current.headingLevel);
-          // 检查markdownSource是否已经包含标题标记
-          if (!markdownSource.startsWith('#')) {
-            finalMarkdown = `${headingMarker} ${markdownSource}`;
-              } else {
-            finalMarkdown = markdownSource;
-          }
-        } else if (textRef.current.elementType === 'listItem') {
-          // 如果是列表项，检查是否已经包含列表标记
-          if (!finalMarkdown.match(/^[\s]*([-*]|\d+[\.\)])\s+/)) {
-            // 添加列表标记（默认为无序列表）
-            finalMarkdown = `- ${finalMarkdown}`;
-          }
-        }
-        
         // 复制格式化后的Markdown
         handleCopy(finalMarkdown, 'Markdown源码');
       } else {
         // 回退到传入的Markdown文本
         handleCopy(textRef.current.markdownText, 'Markdown源码');
       }
-    }, [parentElement, handleCopy, findMarkdownSource, getPureTextContent]);
+    }, [parentElement, handleCopy, findMarkdownSource]);
     
+    // 返回按钮组
     return (
-      <div className="copy-buttons" ref={buttonRef}>
-        <button 
-          className="copy-button"
-          onClick={handleCopyText}
-          title="复制网页文字"
+      <div className="copy-buttons" style={{ display: 'flex', gap: '0.25rem' }} ref={buttonRef}>
+        <button
+          className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1"
+          onClick={handleQuoteSection}
+          title="引用该段内容"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '0.75rem', height: '0.75rem' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span>引用该段</span>
+        </button>
+        <button 
+          className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1"
+          onClick={handleCopyText}
+          title="复制段落文字"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
             <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
             <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
           </svg>
           <span>复制文字</span>
         </button>
         <button 
-          className="copy-button"
+          className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs flex items-center space-x-1"
           onClick={handleCopyMarkdown}
-          title="复制Markdown源码"
+          title="复制段落源码"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '0.75rem', height: '0.75rem' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
             <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
           <span>复制源码</span>
@@ -924,6 +1016,16 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               const copyTextButton = document.createElement('button');
               copyTextButton.className = 'copy-button';
               copyTextButton.title = '复制公式文字';
+              copyTextButton.style.backgroundColor = '#3b82f6'; // 蓝色背景
+              copyTextButton.style.color = 'white';
+              copyTextButton.style.border = 'none';
+              copyTextButton.style.borderRadius = '0.25rem';
+              copyTextButton.style.padding = '0.25rem 0.5rem';
+              copyTextButton.style.fontSize = '0.75rem';
+              copyTextButton.style.display = 'flex';
+              copyTextButton.style.alignItems = 'center';
+              copyTextButton.style.gap = '0.25rem';
+              copyTextButton.style.cursor = 'pointer';
               copyTextButton.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 0.75rem; height: 0.75rem;">
                   <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
@@ -937,6 +1039,14 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               copyTextButton.style.WebkitUserSelect = 'none';
               copyTextButton.style.MozUserSelect = 'none';
               copyTextButton.style.msUserSelect = 'none';
+              
+              // 添加悬停效果
+              copyTextButton.addEventListener('mouseover', () => {
+                copyTextButton.style.backgroundColor = '#2563eb'; // 深蓝色
+              });
+              copyTextButton.addEventListener('mouseout', () => {
+                copyTextButton.style.backgroundColor = '#3b82f6'; // 恢复蓝色
+              });
               
               copyTextButton.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -968,6 +1078,16 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               const copySourceButton = document.createElement('button');
               copySourceButton.className = 'copy-button';
               copySourceButton.title = '复制公式源码';
+              copySourceButton.style.backgroundColor = '#6b7280'; // 灰色背景
+              copySourceButton.style.color = 'white';
+              copySourceButton.style.border = 'none';
+              copySourceButton.style.borderRadius = '0.25rem';
+              copySourceButton.style.padding = '0.25rem 0.5rem';
+              copySourceButton.style.fontSize = '0.75rem';
+              copySourceButton.style.display = 'flex';
+              copySourceButton.style.alignItems = 'center';
+              copySourceButton.style.gap = '0.25rem';
+              copySourceButton.style.cursor = 'pointer';
               copySourceButton.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 0.75rem; height: 0.75rem;">
                   <path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -980,6 +1100,14 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               copySourceButton.style.WebkitUserSelect = 'none';
               copySourceButton.style.MozUserSelect = 'none';
               copySourceButton.style.msUserSelect = 'none';
+              
+              // 添加悬停效果
+              copySourceButton.addEventListener('mouseover', () => {
+                copySourceButton.style.backgroundColor = '#4b5563'; // 深灰色
+              });
+              copySourceButton.addEventListener('mouseout', () => {
+                copySourceButton.style.backgroundColor = '#6b7280'; // 恢复灰色
+              });
               
               copySourceButton.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1007,7 +1135,73 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
                 handleCopy(`$$${formula}$$`, '公式源码');
               });
               
+              // 创建引用该段按钮
+              const quoteButton = document.createElement('button');
+              quoteButton.className = 'copy-button';
+              quoteButton.title = '引用该段内容';
+              quoteButton.style.backgroundColor = '#10b981'; // 绿色背景
+              quoteButton.style.color = 'white';
+              quoteButton.style.border = 'none';
+              quoteButton.style.borderRadius = '0.25rem';
+              quoteButton.style.padding = '0.25rem 0.5rem';
+              quoteButton.style.fontSize = '0.75rem';
+              quoteButton.style.display = 'flex';
+              quoteButton.style.alignItems = 'center';
+              quoteButton.style.gap = '0.25rem';
+              quoteButton.style.cursor = 'pointer';
+              quoteButton.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>引用该段</span>
+              `;
+              
+              // 确保按钮不会被选中和复制
+              quoteButton.style.userSelect = 'none';
+              quoteButton.style.WebkitUserSelect = 'none';
+              quoteButton.style.MozUserSelect = 'none';
+              quoteButton.style.msUserSelect = 'none';
+              
+              // 添加悬停效果
+              quoteButton.addEventListener('mouseover', () => {
+                quoteButton.style.backgroundColor = '#059669'; // 深绿色
+              });
+              quoteButton.addEventListener('mouseout', () => {
+                quoteButton.style.backgroundColor = '#10b981'; // 恢复绿色
+              });
+              
+              quoteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // 临时隐藏所有复制按钮，以便获取纯文本内容
+                const allButtons = document.querySelectorAll('.copy-buttons, .inline-math-copy-buttons, .copy-button');
+                const originalDisplayStyles = [];
+                
+                // 保存原始显示状态并隐藏按钮
+                allButtons.forEach(button => {
+                  originalDisplayStyles.push(button.style.display);
+                  button.style.display = 'none';
+                });
+                
+                // 获取最新的公式文本
+                const formula = texSource;
+                
+                // 恢复按钮显示状态
+                allButtons.forEach((button, index) => {
+                  if (index < originalDisplayStyles.length) {
+                    button.style.display = originalDisplayStyles[index];
+                  }
+                });
+                
+                // 使用自定义事件触发引用功能
+                const customEvent = new CustomEvent('quote-section', { 
+                  detail: { text: `$$${formula}$$` } 
+                });
+                window.dispatchEvent(customEvent);
+              });
+              
               // 添加按钮到容器
+              copyButtonsContainer.appendChild(quoteButton);
               copyButtonsContainer.appendChild(copyTextButton);
               copyButtonsContainer.appendChild(copySourceButton);
               
@@ -1145,6 +1339,16 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               const copySourceButton = document.createElement('button');
               copySourceButton.className = 'copy-button';
               copySourceButton.title = '复制公式源码';
+              copySourceButton.style.backgroundColor = '#6b7280'; // 灰色背景
+              copySourceButton.style.color = 'white';
+              copySourceButton.style.border = 'none';
+              copySourceButton.style.borderRadius = '0.25rem';
+              copySourceButton.style.padding = '0.25rem 0.5rem';
+              copySourceButton.style.fontSize = '0.75rem';
+              copySourceButton.style.display = 'flex';
+              copySourceButton.style.alignItems = 'center';
+              copySourceButton.style.gap = '0.25rem';
+              copySourceButton.style.cursor = 'pointer';
               copySourceButton.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 0.75rem; height: 0.75rem;">
                   <path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -1157,6 +1361,14 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               copySourceButton.style.WebkitUserSelect = 'none';
               copySourceButton.style.MozUserSelect = 'none';
               copySourceButton.style.msUserSelect = 'none';
+              
+              // 添加悬停效果
+              copySourceButton.addEventListener('mouseover', () => {
+                copySourceButton.style.backgroundColor = '#4b5563'; // 深灰色
+              });
+              copySourceButton.addEventListener('mouseout', () => {
+                copySourceButton.style.backgroundColor = '#6b7280'; // 恢复灰色
+              });
               
               copySourceButton.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1184,7 +1396,73 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
                 handleCopy(`$$${formula}$$`, '公式源码');
               });
               
+              // 创建引用该段按钮
+              const quoteButton = document.createElement('button');
+              quoteButton.className = 'copy-button';
+              quoteButton.title = '引用该段内容';
+              quoteButton.style.backgroundColor = '#10b981'; // 绿色背景
+              quoteButton.style.color = 'white';
+              quoteButton.style.border = 'none';
+              quoteButton.style.borderRadius = '0.25rem';
+              quoteButton.style.padding = '0.25rem 0.5rem';
+              quoteButton.style.fontSize = '0.75rem';
+              quoteButton.style.display = 'flex';
+              quoteButton.style.alignItems = 'center';
+              quoteButton.style.gap = '0.25rem';
+              quoteButton.style.cursor = 'pointer';
+              quoteButton.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>引用该段</span>
+              `;
+              
+              // 确保按钮不会被选中和复制
+              quoteButton.style.userSelect = 'none';
+              quoteButton.style.WebkitUserSelect = 'none';
+              quoteButton.style.MozUserSelect = 'none';
+              quoteButton.style.msUserSelect = 'none';
+              
+              // 添加悬停效果
+              quoteButton.addEventListener('mouseover', () => {
+                quoteButton.style.backgroundColor = '#059669'; // 深绿色
+              });
+              quoteButton.addEventListener('mouseout', () => {
+                quoteButton.style.backgroundColor = '#10b981'; // 恢复绿色
+              });
+              
+              quoteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // 临时隐藏所有复制按钮，以便获取纯文本内容
+                const allButtons = document.querySelectorAll('.copy-buttons, .inline-math-copy-buttons, .copy-button');
+                const originalDisplayStyles = [];
+                
+                // 保存原始显示状态并隐藏按钮
+                allButtons.forEach(button => {
+                  originalDisplayStyles.push(button.style.display);
+                  button.style.display = 'none';
+                });
+                
+                // 获取最新的公式文本
+                const formula = texSource;
+                
+                // 恢复按钮显示状态
+                allButtons.forEach((button, index) => {
+                  if (index < originalDisplayStyles.length) {
+                    button.style.display = originalDisplayStyles[index];
+                  }
+                });
+                
+                // 使用自定义事件触发引用功能
+                const customEvent = new CustomEvent('quote-section', { 
+                  detail: { text: `$$${formula}$$` } 
+                });
+                window.dispatchEvent(customEvent);
+              });
+              
               // 添加按钮到容器
+              copyButtons.appendChild(quoteButton);
               copyButtons.appendChild(copyTextButton);
               copyButtons.appendChild(copySourceButton);
               

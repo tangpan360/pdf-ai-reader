@@ -8,6 +8,112 @@ import 'katex/dist/katex.min.css';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
+// 文本选择操作浮动按钮组件
+const TextSelectionButtons = ({ onTranslate, onQuote }) => {
+  const [visible, setVisible] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const buttonsRef = useRef(null);
+
+  // 监听选择事件
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      // 延迟处理，确保选择已完成
+      setTimeout(() => {
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+        
+        if (selectedText && selection.rangeCount > 0) {
+          // 获取选区范围
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          
+          // 确保选择区域在可见范围内
+          if (rect.width > 0 && rect.height > 0) {
+            // 设置按钮位置在选择区域下方
+            // 使用 clientX/clientY 以避免滚动影响
+            setPosition({
+              x: rect.left + (rect.width / 2),
+              y: rect.bottom + 10
+            });
+            setVisible(true);
+          }
+        } else {
+          setVisible(false);
+        }
+      }, 10);
+    };
+
+    // 处理滚动事件，隐藏按钮
+    const handleScroll = () => {
+      setVisible(false);
+    };
+
+    // 点击页面其他地方时隐藏按钮
+    const handleClickOutside = (event) => {
+      if (buttonsRef.current && !buttonsRef.current.contains(event.target)) {
+        setVisible(false);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  // 处理翻译按钮点击
+  const handleTranslateClick = () => {
+    const selectedText = window.getSelection().toString().trim();
+    if (selectedText) {
+      onTranslate(selectedText);
+      setVisible(false);
+      // 清除选择，确保用户体验流畅
+      window.getSelection().removeAllRanges();
+    }
+  };
+
+  // 处理引用按钮点击
+  const handleQuoteClick = () => {
+    const selectedText = window.getSelection().toString().trim();
+    if (selectedText) {
+      onQuote(selectedText);
+      setVisible(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div 
+      ref={buttonsRef}
+      className="fixed z-50 bg-white shadow-lg rounded-md p-1 flex space-x-1"
+      style={{
+        left: `${position.x - 80}px`, // 居中显示，考虑按钮宽度
+        top: `${position.y}px`,
+        transform: 'translateX(0)',
+      }}
+    >
+      <button 
+        onClick={handleTranslateClick}
+        className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+      >
+        翻译
+      </button>
+      <button 
+        onClick={handleQuoteClick}
+        className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+      >
+        引用
+      </button>
+    </div>
+  );
+};
+
 const WebsiteAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -52,6 +158,7 @@ const WebsiteAssistant = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState({ id: null, status: '' }); // 删除状态
   const [saveStatus, setSaveStatus] = useState(''); // 保存设置状态
+  const [referencedText, setReferencedText] = useState([]); // 存储引用的文本
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -229,16 +336,42 @@ const WebsiteAssistant = () => {
   // 添加键盘快捷键监听
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl + L 快捷键切换侧边栏
+      // Ctrl + L 快捷键
       if (e.ctrlKey && e.key === 'l') {
         e.preventDefault();
-        setIsOpen(prev => !prev);
+        
+        // 获取选中的文本
+        const selectedText = window.getSelection().toString().trim();
+        
+        // 如果有选中文本且侧边栏未打开，先打开侧边栏再添加引用
+        if (selectedText && !isOpen) {
+          setIsOpen(true);
+          setCurrentView('chat'); // 确保切换到聊天视图
+          // 添加选中文本到引用列表
+          setReferencedText(prev => [...prev, selectedText]);
+          // 短暂延迟后聚焦输入框
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 100);
+        } 
+        // 如果有选中文本且侧边栏已打开，仅添加引用
+        else if (selectedText && isOpen) {
+          setReferencedText(prev => [...prev, selectedText]);
+          // 聚焦输入框
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 50);
+        }
+        // 如果没有选中文本，切换侧边栏
+        else {
+          setIsOpen(prev => !prev);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isOpen]);
 
   // 添加一个监视当前视图变化的效果
   useEffect(() => {
@@ -329,8 +462,8 @@ const WebsiteAssistant = () => {
   }, [isOpen, currentView]);
 
   const handleSendMessage = async () => {
-    // 如果正在加载非流式响应，或者输入为空，则不允许发送
-    if (!input.trim() || (isLoading && !isStreaming)) return;
+    // 如果正在加载非流式响应，或者输入为空且没有引用文本，则不允许发送
+    if ((!input.trim() && referencedText.length === 0) || (isLoading && !isStreaming)) return;
     
     // 如果正在流式输出中，则不允许发送新消息，只能停止生成
     if (isStreaming) {
@@ -343,14 +476,24 @@ const WebsiteAssistant = () => {
       createNewConversation();
     }
     
+    // 准备用户消息内容，添加引用文本
+    let messageContent = input.trim();
+    
+    // 如果有引用的文本，添加到消息中
+    if (referencedText.length > 0) {
+      const quotedText = referencedText.map(text => `> ${text}`).join('\n\n');
+      messageContent = `${quotedText}\n\n${messageContent}`;
+    }
+    
     const userMessage = {
       role: 'user',
-      content: input.trim(),
+      content: messageContent,
       timestamp: new Date().toISOString(),
     };
     
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setReferencedText([]); // 清空引用文本
     
     // 重置输入框高度
     if (inputRef.current) {
@@ -1892,6 +2035,33 @@ const WebsiteAssistant = () => {
       
       {/* 可自动扩展高度的输入区域 */}
       <div className="p-3 border-t bg-white">
+        {/* 显示引用的文本区域 */}
+        {referencedText.length > 0 && (
+          <div className="mb-2 bg-gray-100 p-2 rounded text-sm max-h-[150px] overflow-y-auto">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs font-medium text-gray-500">引用文本:</span>
+              <button 
+                onClick={() => setReferencedText([])} 
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                清除全部
+              </button>
+            </div>
+            {referencedText.map((text, index) => (
+              <div key={index} className="border-l-2 border-gray-400 pl-2 py-1 text-gray-700 mb-1 text-xs flex justify-between items-start group">
+                <span>{text.length > 150 ? `${text.substring(0, 150)}...` : text}</span>
+                <button 
+                  onClick={() => setReferencedText(prev => prev.filter((_, i) => i !== index))}
+                  className="ml-2 text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="删除此引用"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      
         <div className="flex">
           <div className="flex-grow relative">
             <textarea
@@ -1929,6 +2099,7 @@ const WebsiteAssistant = () => {
                   ? 'bg-red-500 text-white hover:bg-red-600'
                   : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
+            title={isStreaming ? "停止" : "发送"}
           >
             {isLoading ? (
               isStreaming ? (
@@ -1973,8 +2144,84 @@ const WebsiteAssistant = () => {
     }
   };
 
+  // 处理翻译文本，添加到引用并发送请求
+  const handleTranslateText = (selectedText) => {
+    if (!selectedText) return;
+    
+    // 打开侧边栏（如果未打开）
+    if (!isOpen) {
+      setIsOpen(true);
+      setCurrentView('chat');
+    }
+    
+    // 添加选中的文本作为引用
+    setReferencedText([selectedText]);
+    
+    // 添加"翻译为中文，不要添加任何解释"作为输入内容
+    setInput("翻译为中文，不要添加任何解释");
+    
+    // 使用更长的延迟确保状态更新完全生效后再发送消息
+    // 由于setState是异步的，确保上面的状态设置已经完成
+    setTimeout(() => {
+      // 直接触发发送按钮的点击事件，或调用handleSendMessage
+      const sendButton = document.querySelector('button[title="发送"]') || 
+                         document.querySelector('.rounded-r-lg');
+      
+      if (sendButton) {
+        // 使用点击事件更接近用户行为
+        sendButton.click();
+      } else {
+        // 备选方案：直接调用发送函数
+        handleSendMessage();
+      }
+    }, 200); // 增加延迟时间，确保状态已更新
+  };
+  
+  // 处理引用文本，与Ctrl+L功能相同
+  const handleQuoteText = (selectedText) => {
+    if (!selectedText) return;
+    
+    // 打开侧边栏（如果未打开）
+    if (!isOpen) {
+      setIsOpen(true);
+      setCurrentView('chat');
+    }
+    
+    // 添加选中文本到引用列表
+    setReferencedText(prev => [...prev, selectedText]);
+    
+    // 聚焦输入框
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+  };
+
+  // 监听从其他组件发来的引用请求
+  useEffect(() => {
+    const handleQuoteSectionEvent = (event) => {
+      if (event.detail && event.detail.text) {
+        // 使用相同的引用处理函数
+        handleQuoteText(event.detail.text);
+      }
+    };
+
+    // 添加全局事件监听
+    window.addEventListener('quote-section', handleQuoteSectionEvent);
+
+    // 清理函数
+    return () => {
+      window.removeEventListener('quote-section', handleQuoteSectionEvent);
+    };
+  }, [isOpen]); // 依赖 isOpen 状态
+
   return (
     <>
+      {/* 选中文本的浮动按钮 */}
+      <TextSelectionButtons
+        onTranslate={handleTranslateText}
+        onQuote={handleQuoteText}
+      />
+      
       {/* 侧边栏切换按钮 */}
       <button
         className="fixed right-4 top-24 z-50 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-3 shadow-lg transition-all duration-300"
