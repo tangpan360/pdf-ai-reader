@@ -554,31 +554,83 @@ const WebsiteAssistant = () => {
             signal: controller.signal
           });
           
+          // 检查响应状态
+          if (!response.ok) {
+            // 尝试获取错误信息
+            try {
+              const errorText = await response.text();
+              throw new Error(`API请求失败: ${errorText}`);
+            } catch (e) {
+              throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+            }
+          }
+          
+          // 确保响应包含可读流
+          if (!response.body) {
+            throw new Error('响应中没有可读流，请检查服务器端配置');
+          }
+
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let done = false;
           let accumulatedContent = '';
+          
+          // 添加失败重试机制
+          let retryCount = 0;
+          const MAX_RETRIES = 3;
+          const RETRY_DELAY = 1000; // 1秒后重试
           
           // 添加防抖动处理
           let lastUpdateTime = 0;
           const UPDATE_INTERVAL = 50; // 50毫秒内最多更新一次UI
           
           while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            accumulatedContent += chunk;
-            
-            // 使用防抖动更新，降低重绘频率
-            const now = Date.now();
-            if (now - lastUpdateTime > UPDATE_INTERVAL) {
-              lastUpdateTime = now;
+            try {
+              const { value, done: doneReading } = await reader.read();
+              done = doneReading;
               
-              // 使用优化后的函数更新内容
-              updateStreamingContent(assistantMessageId, accumulatedContent);
+              if (done) break;
+              
+              // 重置重试计数
+              retryCount = 0;
+              
+              const chunk = decoder.decode(value, { stream: true });
+              accumulatedContent += chunk;
+              
+              // 使用防抖动更新，降低重绘频率
+              const now = Date.now();
+              if (now - lastUpdateTime > UPDATE_INTERVAL) {
+                lastUpdateTime = now;
+                
+                // 使用优化后的函数更新内容
+                updateStreamingContent(assistantMessageId, accumulatedContent);
+              }
+            } catch (streamError) {
+              console.error('流读取错误:', streamError);
+              
+              // 如果是由于用户取消导致的错误，直接中断
+              if (streamError.name === 'AbortError') {
+                throw streamError;
+              }
+              
+              // 重试逻辑
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                console.log(`尝试重新连接流 (${retryCount}/${MAX_RETRIES})...`);
+                
+                // 添加一条提示消息
+                updateStreamingContent(assistantMessageId, accumulatedContent + 
+                  `\n\n[连接中断，正在尝试重新连接 (${retryCount}/${MAX_RETRIES})...]`);
+                
+                // 延迟一段时间后重试
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                continue; // 继续尝试读取
+              } else {
+                // 超过重试次数，添加错误提示并中断
+                updateStreamingContent(assistantMessageId, accumulatedContent + 
+                  '\n\n[连接中断，无法完成响应。请尝试刷新页面或稍后再试。]');
+                done = true;
+              }
             }
           }
           
@@ -985,29 +1037,88 @@ const WebsiteAssistant = () => {
             signal: controller.signal
           });
           
+          // 检查响应状态
+          if (!response.ok) {
+            // 尝试获取错误信息
+            try {
+              const errorText = await response.text();
+              throw new Error(`API请求失败: ${errorText}`);
+            } catch (e) {
+              throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+            }
+          }
+          
+          // 确保响应包含可读流
+          if (!response.body) {
+            throw new Error('响应中没有可读流，请检查服务器端配置');
+          }
+
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let done = false;
           let accumulatedContent = '';
           
+          // 添加失败重试机制
+          let retryCount = 0;
+          const MAX_RETRIES = 3;
+          const RETRY_DELAY = 1000; // 1秒后重试
+          
+          // 添加防抖动处理
+          let lastUpdateTime = 0;
+          const UPDATE_INTERVAL = 50; // 50毫秒内最多更新一次UI
+          
           while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            accumulatedContent += chunk;
-            
-            // 更新消息内容
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === assistantMessageId
-                  ? { ...msg, content: accumulatedContent }
-                  : msg
-              )
-            );
+            try {
+              const { value, done: doneReading } = await reader.read();
+              done = doneReading;
+              
+              if (done) break;
+              
+              // 重置重试计数
+              retryCount = 0;
+              
+              const chunk = decoder.decode(value, { stream: true });
+              accumulatedContent += chunk;
+              
+              // 使用防抖动更新，降低重绘频率
+              const now = Date.now();
+              if (now - lastUpdateTime > UPDATE_INTERVAL) {
+                lastUpdateTime = now;
+                
+                // 使用优化后的函数更新内容
+                updateStreamingContent(assistantMessageId, accumulatedContent);
+              }
+            } catch (streamError) {
+              console.error('流读取错误:', streamError);
+              
+              // 如果是由于用户取消导致的错误，直接中断
+              if (streamError.name === 'AbortError') {
+                throw streamError;
+              }
+              
+              // 重试逻辑
+              if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                console.log(`尝试重新连接流 (${retryCount}/${MAX_RETRIES})...`);
+                
+                // 添加一条提示消息
+                updateStreamingContent(assistantMessageId, accumulatedContent + 
+                  `\n\n[连接中断，正在尝试重新连接 (${retryCount}/${MAX_RETRIES})...]`);
+                
+                // 延迟一段时间后重试
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                continue; // 继续尝试读取
+              } else {
+                // 超过重试次数，添加错误提示并中断
+                updateStreamingContent(assistantMessageId, accumulatedContent + 
+                  '\n\n[连接中断，无法完成响应。请尝试刷新页面或稍后再试。]');
+                done = true;
+              }
+            }
           }
+          
+          // 确保最后一次更新始终执行
+          updateStreamingContent(assistantMessageId, accumulatedContent);
           
           // 更新对话历史
           setMessages(prev => {

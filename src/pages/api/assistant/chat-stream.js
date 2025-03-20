@@ -95,23 +95,55 @@ export default async function handler(req, res) {
               if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                 try {
                   const jsonStr = line.substring(6); // 移除 "data: " 前缀
-                  const jsonData = JSON.parse(jsonStr);
                   
-                  // 提取内容增量
-                  const delta = jsonData.choices[0]?.delta;
-                  if (delta && delta.content) {
-                    textContent += delta.content;
+                  // 增加对不完整JSON的健壮性
+                  if (!jsonStr.trim()) continue;
+                  
+                  try {
+                    const jsonData = JSON.parse(jsonStr);
+                    
+                    // 提取内容增量
+                    const delta = jsonData.choices[0]?.delta;
+                    if (delta && delta.content) {
+                      textContent += delta.content;
+                    }
+                  } catch (parseError) {
+                    console.warn('解析JSON时出错，可能是不完整的数据:', parseError.message);
+                    // 记录错误但继续处理，不抛出异常
+                    // 尝试修复常见的JSON不完整问题
+                    try {
+                      // 对于未终止的字符串，尝试添加结束引号并解析
+                      if (parseError.message.includes('Unterminated string')) {
+                        const fixedJson = jsonStr + '"}]}';
+                        const jsonData = JSON.parse(fixedJson);
+                        const delta = jsonData.choices[0]?.delta;
+                        if (delta && delta.content) {
+                          textContent += delta.content;
+                        }
+                      }
+                    } catch (e) {
+                      // 修复尝试失败，忽略这一部分数据
+                      console.error('尝试修复JSON失败:', e.message);
+                    }
                   }
                 } catch (e) {
-                  console.error('解析流数据时出错:', e);
+                  console.error('处理数据行时出错:', e);
                   // 继续处理下一行
                 }
+              } else if (line === 'data: [DONE]') {
+                // 流结束标记，不需要处理
+                continue;
               }
             }
             
             // 将提取的内容发送到客户端
             if (textContent) {
               res.write(textContent);
+              
+              // 确保数据被立即发送出去，解决内网穿透问题
+              if (res.flush) {
+                res.flush();
+              }
             }
           } catch (e) {
             console.error('处理响应块时出错:', e);
