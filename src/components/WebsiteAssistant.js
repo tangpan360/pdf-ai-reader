@@ -1236,29 +1236,19 @@ const WebsiteAssistant = () => {
     if (!content) return '';
     
     // 处理 LaTeX 块级公式 \[ \] 格式，转换为 $$ $$ 格式
-    let processed = content.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$1$$');
+    let processed = content.replace(/\\\[([\s\S]*?)\\\]/g, '$$$1$$');
     
     // 处理行内的 \( \) 语法，转换为 $ $ 格式
     processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$');
     
-    // 处理已经是 $$ $$ 格式的情况，确保它们被正确解析
-    // 先检查它们是否已经被正确识别，如果没有则手动处理
-    // 这通常用于处理非标准标记，或确保标记直接被显示为块级公式
-    if (processed.match(/\$\$([\s\S]*?)\$\$/g)) {
-      // 这种情况下已经是 $$ $$ 格式，无需处理
-      // 但我们可以确保它被识别为块级公式，比如加入额外空格等
-      processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-        // 确保公式前后有换行
-        if (!match.startsWith('\n') && !/\n\s*$/.test(match)) {
-          return '\n' + match + '\n';
-        }
-        return match;
-      });
-    }
-    
-    // 确保单行内的 $ 不会被错误解析为多个行内公式
-    // 例如 $a$ 和 $b$ 应该是两个独立的公式，而非 $a$ 和 $b$ 之间的所有内容
-    processed = processed.replace(/(\$)([^\$]+?)(\$)/g, '$1$2$3');
+    // 确保 $$ $$ 格式的公式前后有换行
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+      // 如果公式前后没有换行，则添加换行
+      if (!match.startsWith('\n') && !/\n\s*$/.test(match)) {
+        return '\n' + match + '\n';
+      }
+      return match;
+    });
     
     return processed;
   };
