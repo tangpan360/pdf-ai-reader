@@ -47,6 +47,75 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
   const editorRef = useRef(null);
   const previewRef = useRef(null);
   const [isScrolling, setIsScrolling] = useState(false);
+  // 添加滚动位置记录
+  const lastScrollPosition = useRef(0);
+  const mainContentRef = useRef(null);
+
+  // 保存滚动位置
+  const saveScrollPosition = useCallback(() => {
+    if (isEditing) {
+      // 在编辑模式下，保存预览区域的滚动位置和百分比
+      const previewElement = previewRef.current;
+      if (previewElement) {
+        const scrollTop = previewElement.scrollTop;
+        const scrollHeight = previewElement.scrollHeight - previewElement.clientHeight;
+        const scrollPercentage = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+        lastScrollPosition.current = {
+          position: scrollTop,
+          percentage: scrollPercentage
+        };
+      }
+    } else {
+      // 在预览模式下，保存主内容区域的滚动位置和文档高度
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPercentage = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+      lastScrollPosition.current = {
+        position: scrollTop,
+        percentage: scrollPercentage
+      };
+    }
+  }, [isEditing]);
+
+  // 恢复滚动位置
+  const restoreScrollPosition = useCallback(() => {
+    if (!lastScrollPosition.current) return;
+    
+    if (isEditing) {
+      // 进入编辑模式后，使用百分比计算新的滚动位置
+      const previewElement = previewRef.current;
+      const editorElement = editorRef.current;
+      
+      if (previewElement && editorElement) {
+        setTimeout(() => {
+          const scrollPercentage = lastScrollPosition.current.percentage || 0;
+          
+          // 计算新的滚动位置
+          const previewScrollHeight = previewElement.scrollHeight - previewElement.clientHeight;
+          const newPreviewScrollTop = scrollPercentage * previewScrollHeight;
+          
+          // 设置预览区域的滚动位置
+          previewElement.scrollTop = newPreviewScrollTop;
+          
+          // 同步编辑器的滚动位置
+          const editorScrollHeight = editorElement.scrollHeight - editorElement.clientHeight;
+          editorElement.scrollTop = scrollPercentage * editorScrollHeight;
+        }, 200); // 增加延迟确保DOM已完全更新
+      }
+    } else {
+      // 退出编辑模式后，使用百分比计算新的滚动位置
+      setTimeout(() => {
+        const scrollPercentage = lastScrollPosition.current.percentage || 0;
+        const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const newScrollTop = scrollPercentage * scrollHeight;
+        
+        window.scrollTo({
+          top: newScrollTop,
+          behavior: 'auto'
+        });
+      }, 200); // 增加延迟确保DOM已完全更新
+    }
+  }, [isEditing]);
 
   // 复制功能
   const handleCopy = useCallback(async (text, type) => {
@@ -1754,11 +1823,18 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
     setOriginalContent(initialContent);
   }, [initialContent]);
 
+  // 在渲染完成后恢复滚动位置
+  useEffect(() => {
+    restoreScrollPosition();
+  }, [isEditing, restoreScrollPosition]);
+
   const handleEdit = () => {
+    saveScrollPosition();
     setIsEditing(true);
   };
 
   const handleSave = () => {
+    saveScrollPosition();
     setIsEditing(false);
     setOriginalContent(content);
     if (onSave) {
@@ -1767,6 +1843,7 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
   };
 
   const handleCancel = () => {
+    saveScrollPosition();
     setIsEditing(false);
     setContent(originalContent);
   };
@@ -1780,30 +1857,16 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
     const editorElement = editorRef.current;
     const previewElement = previewRef.current;
     
-    // 获取编辑器中可见的第一行文本
+    // 计算编辑器的滚动百分比
     const editorScrollTop = editorElement.scrollTop;
-    const lineHeight = 20; // 估计的行高
-    const firstVisibleLineIndex = Math.floor(editorScrollTop / lineHeight);
+    const editorScrollHeight = editorElement.scrollHeight - editorElement.clientHeight;
+    const scrollPercentage = editorScrollHeight > 0 ? editorScrollTop / editorScrollHeight : 0;
     
-    // 获取预览区域中的所有标题和段落元素
-    const previewElements = previewElement.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, table');
-    const previewElementsArray = Array.from(previewElements);
+    // 根据百分比设置预览区域的滚动位置
+    const previewScrollHeight = previewElement.scrollHeight - previewElement.clientHeight;
+    previewElement.scrollTop = scrollPercentage * previewScrollHeight;
     
-    if (previewElementsArray.length > 0) {
-      // 尝试找到与编辑器中第一行可见文本对应的元素
-      // 这里使用一个简单的启发式方法：按比例查找
-      const targetIndex = Math.min(
-        Math.floor(firstVisibleLineIndex * previewElementsArray.length / (content.split('\n').length || 1)),
-        previewElementsArray.length - 1
-      );
-      
-      if (targetIndex >= 0) {
-        const targetElement = previewElementsArray[targetIndex];
-        targetElement.scrollIntoView({ block: 'start', behavior: 'auto' });
-      }
-    }
-    
-    setTimeout(() => setIsScrolling(false), 100);
+    setTimeout(() => setIsScrolling(false), 150);
   };
 
   // 处理预览区域的滚动同步
@@ -1815,33 +1878,16 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
     const editorElement = editorRef.current;
     const previewElement = previewRef.current;
     
-    // 获取预览区域中可见的第一个元素
+    // 计算预览区域的滚动百分比
     const previewScrollTop = previewElement.scrollTop;
-    const previewElements = previewElement.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, table');
-    const previewElementsArray = Array.from(previewElements);
+    const previewScrollHeight = previewElement.scrollHeight - previewElement.clientHeight;
+    const scrollPercentage = previewScrollHeight > 0 ? previewScrollTop / previewScrollHeight : 0;
     
-    if (previewElementsArray.length > 0) {
-      // 找到当前可见的第一个元素
-      let firstVisibleElementIndex = 0;
-      for (let i = 0; i < previewElementsArray.length; i++) {
-        const element = previewElementsArray[i];
-        if (element.offsetTop >= previewScrollTop) {
-          firstVisibleElementIndex = i;
-          break;
-        }
-      }
-      
-      // 计算对应的编辑器行
-      const targetLine = Math.floor(
-        firstVisibleElementIndex * (content.split('\n').length || 1) / previewElementsArray.length
-      );
-      
-      // 滚动编辑器到对应行
-      const lineHeight = 20; // 估计的行高
-      editorElement.scrollTop = targetLine * lineHeight;
-    }
+    // 根据百分比设置编辑器的滚动位置
+    const editorScrollHeight = editorElement.scrollHeight - editorElement.clientHeight;
+    editorElement.scrollTop = scrollPercentage * editorScrollHeight;
     
-    setTimeout(() => setIsScrolling(false), 100);
+    setTimeout(() => setIsScrolling(false), 150);
   };
 
   // 提取文本内容的辅助函数
@@ -2310,7 +2356,7 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
   };
 
   return (
-    <div className="relative">
+    <div className={`relative ${isFullScreen ? 'px-4' : ''}`} ref={mainContentRef}>
       {/* 固定在左侧中间的编辑按钮 */}
       <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-20">
         {isEditing ? (
@@ -2338,10 +2384,10 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
         )}
       </div>
 
-      <div className="mt-4">
+      <div className={`mt-4 ${isFullScreen ? 'max-w-screen-2xl mx-auto' : ''}`}>
         {isEditing ? (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="relative h-[calc(100vh-200px)]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+            <div className="relative h-[calc(100vh-120px)]">
               <textarea
                 ref={editorRef}
                 value={content}
@@ -2350,7 +2396,7 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
                 className="w-full h-full p-4 border rounded dark:bg-gray-700 dark:text-white font-mono absolute inset-0 resize-none"
               />
             </div>
-            <div className="relative h-[calc(100vh-200px)]">
+            <div className="relative h-[calc(100vh-120px)]">
               <div 
                 ref={previewRef}
                 onScroll={handlePreviewScroll}
