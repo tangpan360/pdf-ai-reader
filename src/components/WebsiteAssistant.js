@@ -2337,6 +2337,38 @@ const WebsiteAssistant = () => {
     }, 200); // 增加延迟时间，确保状态已更新
   };
   
+  // 处理解析该段功能
+  const handleAnalyzeText = (selectedText) => {
+    if (!selectedText) return;
+    
+    // 打开侧边栏（如果未打开）
+    if (!isOpen) {
+      setIsOpen(true);
+      setCurrentView('chat');
+    }
+    
+    // 添加选中的文本作为引用
+    setReferencedText([selectedText]);
+    
+    // 添加"解析该段内容"作为输入内容
+    setInput("解析该段内容");
+    
+    // 使用延迟确保状态更新完全生效后再发送消息
+    setTimeout(() => {
+      // 直接触发发送按钮的点击事件，或调用handleSendMessage
+      const sendButton = document.querySelector('button[title="发送"]') || 
+                         document.querySelector('.rounded-r-lg');
+      
+      if (sendButton) {
+        // 使用点击事件更接近用户行为
+        sendButton.click();
+      } else {
+        // 备选方案：直接调用发送函数
+        handleSendMessage();
+      }
+    }, 200); // 增加延迟时间，确保状态已更新
+  };
+  
   // 处理引用文本，与Ctrl+L功能相同
   const handleQuoteText = (selectedText) => {
     if (!selectedText) return;
@@ -2371,6 +2403,24 @@ const WebsiteAssistant = () => {
     // 清理函数
     return () => {
       window.removeEventListener('quote-section', handleQuoteSectionEvent);
+    };
+  }, [isOpen]); // 依赖 isOpen 状态
+
+  // 监听从其他组件发来的解析请求
+  useEffect(() => {
+    const handleAnalyzeSectionEvent = (event) => {
+      if (event.detail && event.detail.text) {
+        // 使用解析文本处理函数
+        handleAnalyzeText(event.detail.text);
+      }
+    };
+
+    // 添加全局事件监听
+    window.addEventListener('analyze-section', handleAnalyzeSectionEvent);
+
+    // 清理函数
+    return () => {
+      window.removeEventListener('analyze-section', handleAnalyzeSectionEvent);
     };
   }, [isOpen]); // 依赖 isOpen 状态
 
