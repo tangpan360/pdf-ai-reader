@@ -28,10 +28,6 @@ const HistoryTable = ({ onViewFile, onRefresh, refreshTrigger }) => {
   }, [refreshTrigger]);
 
   const handleDelete = async (filename) => {
-    if (!confirm(`确定要删除 ${filename} 及其处理结果吗？`)) {
-      return;
-    }
-
     try {
       const response = await axios.delete('/api/delete', {
         data: { filename },
@@ -41,11 +37,10 @@ const HistoryTable = ({ onViewFile, onRefresh, refreshTrigger }) => {
         fetchHistory();
         if (onRefresh) onRefresh();
       } else {
-        alert('删除文件失败: ' + (response.data.error || '未知错误'));
+        console.error('删除文件失败:', response.data.error || '未知错误');
       }
     } catch (err) {
       console.error('删除文件时出错:', err);
-      alert('删除文件时出错: ' + err.message);
     }
   };
 

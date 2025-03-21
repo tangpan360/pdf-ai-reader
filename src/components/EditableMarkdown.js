@@ -150,20 +150,20 @@ const EditableMarkdown = ({ initialContent, onSave, basePath, isFullScreen }) =>
   };
 
   return (
-    <div className={`relative ${isFullScreen ? 'px-4' : ''}`}>
-      {/* 固定在左侧中间的编辑按钮 */}
-      <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-20">
+    <div className={`relative ${isFullScreen ? '' : ''}`}>
+      {/* 编辑按钮 - 放在全屏按钮旁边 */}
+      <div className={`fixed ${isFullScreen ? 'top-4' : 'top-20'} left-36 z-50`}>
         {isEditing ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={handleSave}
-              className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 shadow-lg"
+              className="px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 shadow-lg transition-colors"
             >
               保存
             </button>
             <button
               onClick={handleCancel}
-              className="px-4 py-2 bg-gray-500 text-white rounded-full hover:bg-gray-600 shadow-lg"
+              className="px-4 py-2 bg-gray-500 text-white rounded-full hover:bg-gray-600 shadow-lg transition-colors"
             >
               取消
             </button>
@@ -171,7 +171,7 @@ const EditableMarkdown = ({ initialContent, onSave, basePath, isFullScreen }) =>
         ) : (
           <button
             onClick={handleEdit}
-            className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 shadow-lg"
+            className="px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 shadow-lg transition-colors"
           >
             编辑
           </button>
@@ -207,7 +207,7 @@ const EditableMarkdown = ({ initialContent, onSave, basePath, isFullScreen }) =>
             </div>
           </div>
         ) : (
-          <div className={`prose dark:prose-invert max-w-none bg-white p-6 rounded-lg shadow ${isFullScreen ? 'ml-16' : ''}`}>
+          <div className={`prose dark:prose-invert max-w-none bg-white p-6 rounded-lg shadow ${isFullScreen ? '' : ''}`}>
             <ReactMarkdown
               components={components}
               remarkPlugins={[remarkMath]}

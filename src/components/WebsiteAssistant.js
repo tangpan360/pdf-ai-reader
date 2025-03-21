@@ -835,10 +835,10 @@ const WebsiteAssistant = () => {
     }
   };
 
-  const removeModel = (id) => {
-    // 不允许删除当前正在使用的模型
+  const deleteModel = (id) => {
+    // 检查是否正在使用或是默认模型
     if (selectedModel === id || settings.defaultModel === id) {
-      alert('无法删除正在使用的模型');
+      console.error('无法删除正在使用的模型');
       return;
     }
     
@@ -846,7 +846,7 @@ const WebsiteAssistant = () => {
   };
 
   const deleteConversation = (id) => {
-    // 设置删除状态
+    // 设置删除状态，不需要用户确认
     setDeleteStatus({ id, status: '删除中...' });
     
     const updatedList = conversations.filter(conv => conv.id !== id);
@@ -1010,8 +1010,33 @@ const WebsiteAssistant = () => {
     // 设置手动滚动标记，防止自动滚动干扰
     setIsManualScrolling(true);
     
-    // 找到要回复的用户消息
-    const messagesToKeep = messages.slice(0, messageIndex + 1);
+    // 获取要回复的用户消息和之前所有消息
+    const messagesToKeep = [...messages];
+    
+    // 如果当前消息是助手消息，则删除它并重新生成
+    // 如果是用户消息，则删除它之后的助手回复并重新生成
+    const currentMessage = messages[messageIndex];
+    const isUserMessage = currentMessage && currentMessage.role === 'user';
+    
+    if (isUserMessage) {
+      // 保留到用户消息为止的所有消息
+      messagesToKeep.splice(messageIndex + 1);
+    } else {
+      // 保留到当前助手消息之前的所有消息
+      messagesToKeep.splice(messageIndex);
+      // 确保有一条用户消息来生成回复
+      if (messageIndex > 0 && messages[messageIndex - 1].role === 'user') {
+        messageIndex = messageIndex - 1;
+      } else {
+        // 找到最近的用户消息
+        for (let i = messageIndex - 1; i >= 0; i--) {
+          if (messages[i].role === 'user') {
+            messageIndex = i;
+            break;
+          }
+        }
+      }
+    }
     
     setMessages(messagesToKeep);
     setIsLoading(true);
@@ -1518,8 +1543,8 @@ const WebsiteAssistant = () => {
     
     // 所有非系统消息都可以编辑
     const canEdit = !isSystem;
-    // 定义重新生成按钮是否可用 - 对于助手消息，仅当是最后一条助手消息时可重新生成
-    const canRegenerate = !isUser && !isSystem && index === messages.length - 1;
+    // 修改重新生成按钮显示逻辑 - 所有助手消息都可以重新生成
+    const canRegenerate = !isUser && !isSystem;
     // 判断是否是最后一条用户消息
     const isLastUserMessage = isUser && messages.findIndex(msg => msg.role === 'user' && msg !== message) < index;
     
@@ -1846,7 +1871,7 @@ const WebsiteAssistant = () => {
                     <span className="text-sm text-gray-500 ml-2">({model.id})</span>
                   </div>
                   <button
-                    onClick={() => removeModel(model.id)}
+                    onClick={() => deleteModel(model.id)}
                     className="text-red-500 hover:text-red-700 text-sm"
                     title="删除此模型"
                   >
@@ -2111,7 +2136,6 @@ const WebsiteAssistant = () => {
              ) : !conversations.find(c => c.id === currentConversationId).isNamed && 
                 settings.autoNameConversation ? (
                <span className="ml-2 text-xs text-gray-500">
-                 (将在3轮对话后自动命名)
                </span>
              ) : null
            )}
@@ -2261,26 +2285,23 @@ const WebsiteAssistant = () => {
     const scrollContainer = document.querySelector('.overflow-y-auto');
     const scrollPosition = scrollContainer ? scrollContainer.scrollTop : 0;
     
-    // 询问用户确认
-    if (confirm('确定要删除这条消息吗？这可能会影响对话的上下文。')) {
-      // 删除消息
-      const updatedMessages = messages.filter((msg) => 
-        (msg.id || msg.timestamp) !== messageId
-      );
-      
-      // 更新对话列表
-      setMessages(updatedMessages);
-      
-      // 更新对话历史
-      updateConversation(updatedMessages, selectedModel);
-      
-      // 恢复滚动位置
-      setTimeout(() => {
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollPosition;
-        }
-      }, 50);
-    }
+    // 删除消息，不需要用户确认
+    const updatedMessages = messages.filter((msg) => 
+      (msg.id || msg.timestamp) !== messageId
+    );
+    
+    // 更新对话列表
+    setMessages(updatedMessages);
+    
+    // 更新对话历史
+    updateConversation(updatedMessages, selectedModel);
+    
+    // 恢复滚动位置
+    setTimeout(() => {
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollPosition;
+      }
+    }, 100);
   };
 
   // 处理翻译文本，添加到引用并发送请求
@@ -2361,14 +2382,16 @@ const WebsiteAssistant = () => {
         onQuote={handleQuoteText}
       />
       
-      {/* 侧边栏切换按钮 */}
-      <button
-        className="fixed right-4 top-24 z-50 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-3 shadow-lg transition-all duration-300"
-        onClick={() => setIsOpen(prev => !prev)}
-        title={isOpen ? "关闭助手" : "打开助手"}
-      >
-        {isOpen ? "✕" : "💬"}
-      </button>
+      {/* 侧边栏切换按钮 - 仅在侧边栏关闭时显示 */}
+      {!isOpen && (
+        <button
+          className="fixed right-4 top-24 z-50 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-3 shadow-lg transition-all duration-300"
+          onClick={() => setIsOpen(true)}
+          title="打开助手"
+        >
+          💬
+        </button>
+      )}
       
       {/* 侧边栏 */}
       <div
@@ -2422,6 +2445,14 @@ const WebsiteAssistant = () => {
             }`}
           >
             ⚙️ 设置
+          </button>
+          {/* 添加关闭按钮到导航栏 */}
+          <button
+            onClick={() => setIsOpen(false)}
+            className="py-3 px-4 text-center text-gray-700 hover:bg-gray-200"
+            title="关闭助手"
+          >
+            ✕
           </button>
         </div>
         

@@ -22,17 +22,22 @@ export default function AssistantHistory() {
   }, []);
 
   const deleteConversation = (id) => {
-    if (window.confirm('确定要删除此对话吗？此操作无法撤销。')) {
-      const updatedConversations = conversations.filter(conv => conv.id !== id);
-      setConversations(updatedConversations);
-      localStorage.setItem('assistantConversations', JSON.stringify(updatedConversations));
-      
-      // 如果删除的是当前对话，清除当前对话ID
-      const currentId = localStorage.getItem('currentConversationId');
-      if (currentId === id) {
-        localStorage.removeItem('currentConversationId');
-      }
+    // 获取存储的对话
+    const conversations = JSON.parse(localStorage.getItem('assistantConversations') || '[]');
+    
+    // 过滤掉要删除的对话
+    const updatedConversations = conversations.filter(conv => conv.id !== id);
+    
+    // 保存更新后的对话列表
+    localStorage.setItem('assistantConversations', JSON.stringify(updatedConversations));
+    
+    // 如果删除的是当前对话，清除当前对话ID
+    if (id === localStorage.getItem('currentConversationId')) {
+      localStorage.removeItem('currentConversationId');
     }
+    
+    // 刷新页面显示
+    setConversations(updatedConversations);
   };
 
   const setCurrentConversation = (id) => {
