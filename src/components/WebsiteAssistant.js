@@ -879,25 +879,63 @@ const WebsiteAssistant = () => {
     // 获取当前点击的按钮元素
     const button = event?.currentTarget;
     
-    navigator.clipboard.writeText(content)
-      .then(() => {
-        if (button) {
-          // 添加"已复制"样式
-          button.classList.add('copied');
-          const originalText = button.textContent;
-          button.textContent = "✓ 已复制";
-          
-          // 2秒后恢复
-          setTimeout(() => {
-            button.classList.remove('copied');
-            button.textContent = originalText;
-          }, 2000);
+    // 检查clipboard API是否可用
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(content)
+        .then(() => {
+          if (button) {
+            // 添加"已复制"样式
+            button.classList.add('copied');
+            const originalText = button.textContent;
+            button.textContent = "✓ 已复制";
+            
+            // 2秒后恢复
+            setTimeout(() => {
+              button.classList.remove('copied');
+              button.textContent = originalText;
+            }, 2000);
+          }
+        })
+        .catch((err) => {
+          console.error('复制失败:', err);
+          alert('复制失败，请手动选择文本复制');
+        });
+    } else {
+      // Clipboard API不可用时的后备方案
+      try {
+        // 创建一个临时textarea元素
+        const textarea = document.createElement('textarea');
+        textarea.value = content;
+        textarea.style.position = 'fixed';  // 避免滚动到视图之外
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        // 尝试使用document.execCommand('copy')复制
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          if (button) {
+            button.classList.add('copied');
+            const originalText = button.textContent;
+            button.textContent = "✓ 已复制";
+            
+            setTimeout(() => {
+              button.classList.remove('copied');
+              button.textContent = originalText;
+            }, 2000);
+          }
+        } else {
+          alert('复制失败，请手动选择文本复制');
         }
-      })
-      .catch((err) => {
+        
+        // 清理
+        document.body.removeChild(textarea);
+      } catch (err) {
         console.error('复制失败:', err);
         alert('复制失败，请手动选择文本复制');
-      });
+      }
+    }
   };
 
   // 处理编辑消息
