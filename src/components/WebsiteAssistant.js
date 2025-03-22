@@ -125,20 +125,20 @@ const TextSelectionButtons = ({ onTranslate, onQuote, onExplain, onCopy }) => {
         解释
       </button>
       <button 
+        onClick={handleQuoteClick}
+        className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+      >
+        引用
+      </button>
+      <button 
         onClick={handleTranslateClick}
         className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
       >
         翻译
       </button>
       <button 
-        onClick={handleQuoteClick}
-        className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
-      >
-        引用
-      </button>
-      <button 
         onClick={handleCopyClick}
-        className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+        className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
       >
         复制
       </button>
