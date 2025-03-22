@@ -150,14 +150,14 @@ body {
 
 /* 确保公式容器有足够的空间显示复制按钮 */
 .katex-display + .copy-buttons {
-  top: 0 !important;
+  top: -1.5rem !important;
 }
 
 /* 确保math-wrapper内的复制按钮正确定位 */
 .math-wrapper > .copy-buttons {
   position: absolute !important;
-  top: 0.5rem !important;
-  right: 0.5rem !important;
+  top: -1.5rem !important;
+  right: 0 !important;
   z-index: 1000 !important;
 }
 

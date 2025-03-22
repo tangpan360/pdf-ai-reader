@@ -967,8 +967,8 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
         }
         .copy-buttons {
           position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
+          top: -1.5rem; /* 从0.5rem修改为-1.5rem，使按钮位于段落上方 */
+          right: 0;
           display: flex;
           gap: 0.5rem;
           opacity: 0;
@@ -1039,8 +1039,8 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
         /* 新增：确保公式容器内的复制按钮正确定位 */
         .math-wrapper > .copy-buttons {
           position: absolute !important;
-          top: 0.5rem !important;
-          right: 0.5rem !important;
+          top: -1.5rem !important;
+          right: 0 !important;
           z-index: 1000 !important;
         }
         /* 新增：确保公式容器的父元素可以正确显示复制按钮 */
@@ -1156,8 +1156,8 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               const copyButtonsContainer = document.createElement('div');
               copyButtonsContainer.className = 'copy-buttons';
               copyButtonsContainer.style.position = 'absolute';
-              copyButtonsContainer.style.top = '0.5rem';
-              copyButtonsContainer.style.right = '0.5rem';
+              copyButtonsContainer.style.top = '-1.5rem';  // 从0.5rem修改为-1.5rem
+              copyButtonsContainer.style.right = '0';  // 从0.5rem修改为0
               copyButtonsContainer.style.zIndex = '1000';
               copyButtonsContainer.style.opacity = '0';
               copyButtonsContainer.style.visibility = 'hidden';
@@ -1495,8 +1495,8 @@ const CopyableEditableMarkdown = ({ initialContent, onSave, basePath, isFullScre
               const copyButtons = document.createElement('div');
               copyButtons.className = 'copy-buttons';
               copyButtons.style.position = 'absolute';
-              copyButtons.style.top = '0.5rem';
-              copyButtons.style.right = '0.5rem';
+              copyButtons.style.top = '-1.5rem';  // 从0.5rem修改为-1.5rem
+              copyButtons.style.right = '0';  // 从0.5rem修改为0
               copyButtons.style.zIndex = '1000';
               copyButtons.style.display = 'flex';
               copyButtons.style.gap = '0.5rem';
