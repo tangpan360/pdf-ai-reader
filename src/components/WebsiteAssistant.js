@@ -9,7 +9,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
 // 文本选择操作浮动按钮组件
-const TextSelectionButtons = ({ onTranslate, onQuote }) => {
+const TextSelectionButtons = ({ onTranslate, onQuote, onExplain, onCopy }) => {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const buttonsRef = useRef(null);
@@ -66,6 +66,17 @@ const TextSelectionButtons = ({ onTranslate, onQuote }) => {
     };
   }, []);
 
+  // 处理解释按钮点击
+  const handleExplainClick = () => {
+    const selectedText = window.getSelection().toString().trim();
+    if (selectedText) {
+      onExplain(selectedText);
+      setVisible(false);
+      // 清除选择，确保用户体验流畅
+      window.getSelection().removeAllRanges();
+    }
+  };
+
   // 处理翻译按钮点击
   const handleTranslateClick = () => {
     const selectedText = window.getSelection().toString().trim();
@@ -86,6 +97,15 @@ const TextSelectionButtons = ({ onTranslate, onQuote }) => {
     }
   };
 
+  // 处理复制按钮点击
+  const handleCopyClick = () => {
+    const selectedText = window.getSelection().toString().trim();
+    if (selectedText) {
+      onCopy(selectedText);
+      setVisible(false);
+    }
+  };
+
   if (!visible) return null;
 
   return (
@@ -93,11 +113,17 @@ const TextSelectionButtons = ({ onTranslate, onQuote }) => {
       ref={buttonsRef}
       className="fixed z-50 bg-white shadow-lg rounded-md p-1 flex space-x-1"
       style={{
-        left: `${position.x - 80}px`, // 居中显示，考虑按钮宽度
+        left: `${position.x - 120}px`, // 居中显示，考虑按钮宽度（增加以适应四个按钮）
         top: `${position.y}px`,
         transform: 'translateX(0)',
       }}
     >
+      <button 
+        onClick={handleExplainClick}
+        className="px-3 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
+      >
+        解释
+      </button>
       <button 
         onClick={handleTranslateClick}
         className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
@@ -109,6 +135,12 @@ const TextSelectionButtons = ({ onTranslate, onQuote }) => {
         className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
       >
         引用
+      </button>
+      <button 
+        onClick={handleCopyClick}
+        className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+      >
+        复制
       </button>
     </div>
   );
@@ -2388,6 +2420,125 @@ const WebsiteAssistant = () => {
     }, 50);
   };
 
+  // 处理解释文本，添加到引用并发送请求
+  const handleExplainText = (selectedText) => {
+    if (!selectedText) return;
+    
+    // 打开侧边栏（如果未打开）
+    if (!isOpen) {
+      setIsOpen(true);
+      setCurrentView('chat');
+    }
+    
+    // 添加选中的文本作为引用
+    setReferencedText([selectedText]);
+    
+    // 添加"解释"作为输入内容
+    setInput("解释");
+    
+    // 使用延迟确保状态更新完全生效后再发送消息
+    setTimeout(() => {
+      // 直接触发发送按钮的点击事件，或调用handleSendMessage
+      const sendButton = document.querySelector('button[title="发送"]') || 
+                         document.querySelector('.rounded-r-lg');
+      
+      if (sendButton) {
+        // 使用点击事件更接近用户行为
+        sendButton.click();
+      } else {
+        // 备选方案：直接调用发送函数
+        handleSendMessage();
+      }
+    }, 200); // 确保状态已更新
+  };
+
+  // 处理复制选中的文本
+  const handleCopySelectedText = (selectedText) => {
+    if (!selectedText) return;
+    
+    // 使用navigator.clipboard API复制文本
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(selectedText)
+        .then(() => {
+          // 显示复制成功通知
+          const notification = document.createElement('div');
+          notification.textContent = "✓ 已复制";
+          notification.style.position = 'fixed';
+          notification.style.bottom = '1rem';
+          notification.style.right = '1rem';
+          notification.style.backgroundColor = '#10b981'; // 绿色
+          notification.style.color = 'white';
+          notification.style.padding = '0.5rem 1rem';
+          notification.style.borderRadius = '0.25rem';
+          notification.style.zIndex = '50';
+          notification.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+          document.body.appendChild(notification);
+          
+          // 2秒后移除通知
+          setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+              document.body.removeChild(notification);
+            }, 300);
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('复制失败:', err);
+          
+          // 失败时的后备方案
+          fallbackCopy(selectedText);
+        });
+    } else {
+      // 后备复制方法
+      fallbackCopy(selectedText);
+    }
+    
+    // 后备复制方法
+    function fallbackCopy(text) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        if (successful) {
+          // 显示成功通知
+          const notification = document.createElement('div');
+          notification.textContent = "✓ 已复制";
+          notification.style.position = 'fixed';
+          notification.style.bottom = '1rem';
+          notification.style.right = '1rem';
+          notification.style.backgroundColor = '#10b981';
+          notification.style.color = 'white';
+          notification.style.padding = '0.5rem 1rem';
+          notification.style.borderRadius = '0.25rem';
+          notification.style.zIndex = '50';
+          notification.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+          document.body.appendChild(notification);
+          
+          setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+              document.body.removeChild(notification);
+            }, 300);
+          }, 2000);
+        } else {
+          console.error('复制失败');
+        }
+      } catch (err) {
+        console.error('复制失败:', err);
+      }
+    }
+  };
+
   // 监听从其他组件发来的引用请求
   useEffect(() => {
     const handleQuoteSectionEvent = (event) => {
@@ -2430,6 +2581,8 @@ const WebsiteAssistant = () => {
       <TextSelectionButtons
         onTranslate={handleTranslateText}
         onQuote={handleQuoteText}
+        onExplain={handleExplainText}
+        onCopy={handleCopySelectedText}
       />
       
       {/* 侧边栏切换按钮 - 仅在侧边栏关闭时显示 */}
