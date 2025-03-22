@@ -158,7 +158,7 @@ export default function ViewFile() {
       {/* 固定在顶部的导航栏 - 全屏模式下隐藏 */}
       {!isFullScreen && (
         <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-30">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="container-fluid w-full px-4 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">PDF-AI-阅读系统</h1>
             <div className="flex space-x-4">
               <Link href="/history" className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
@@ -183,7 +183,7 @@ export default function ViewFile() {
       {/* 添加顶部空间，避免内容被固定导航栏遮挡 - 全屏模式下不需要 */}
       {!isFullScreen && <div className="pt-16"></div>}
 
-      <main className="container mx-auto px-4 py-8 flex-grow">
+      <main className="container-fluid w-full px-4 py-8 flex-grow">
         <div className="max-w-6xl mx-auto">
           {loading ? (
             <div className="text-center py-12">
@@ -226,8 +226,8 @@ export default function ViewFile() {
 
       {!isFullScreen && (
         <footer className="bg-white border-t border-gray-200 py-6 mt-auto">
-          <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} PDF处理系统
+          <div className="container-fluid w-full px-4 text-center text-gray-500 text-sm">
+            &copy; {new Date().getFullYear()} PDF-AI-阅读系统
           </div>
         </footer>
       )}

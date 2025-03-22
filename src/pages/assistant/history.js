@@ -67,7 +67,7 @@ export default function AssistantHistory() {
       </Head>
 
       <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container-fluid w-full px-4 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">PDF-AI-阅读系统 - 助手对话历史</h1>
             <Link href="/" className="text-blue-500 hover:text-blue-600 font-medium">
@@ -77,7 +77,7 @@ export default function AssistantHistory() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container-fluid w-full px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {loading ? (
             <div className="text-center py-10">

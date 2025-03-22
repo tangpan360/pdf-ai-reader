@@ -55,7 +55,7 @@ export default function History() {
       </Head>
 
       <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-30">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="container-fluid w-full px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">PDF-AI-阅读系统</h1>
           <Link href="/" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
             返回主页
@@ -65,7 +65,7 @@ export default function History() {
 
       <div className="pt-16"></div>
 
-      <main className="container mx-auto px-4 py-8 flex-grow">
+      <main className="container-fluid w-full px-4 py-8 flex-grow">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-xl font-semibold mb-6">处理历史记录</h2>
           
@@ -132,8 +132,8 @@ export default function History() {
       </main>
 
       <footer className="bg-white border-t border-gray-200 py-6 mt-auto">
-        <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
-          &copy; {new Date().getFullYear()} PDF处理系统
+        <div className="container-fluid w-full px-4 text-center text-gray-500 text-sm">
+          &copy; {new Date().getFullYear()} PDF-AI-阅读系统
         </div>
       </footer>
     </div>
