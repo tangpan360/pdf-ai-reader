@@ -50,7 +50,8 @@ export default function History() {
       <Head>
         <title>历史记录 - PDF处理系统</title>
         <meta name="description" content="PDF处理与展示系统历史记录" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/icons/pdf-icon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.ico" />
       </Head>
 
       <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-30">

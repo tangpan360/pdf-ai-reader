@@ -151,7 +151,8 @@ export default function ViewFile() {
       <Head>
         <title>{filename ? `${filename} - PDF处理系统` : 'PDF处理系统'}</title>
         <meta name="description" content="PDF处理与展示系统" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/icons/pdf-icon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.ico" />
       </Head>
 
       {/* 固定在顶部的导航栏 - 全屏模式下隐藏 */}

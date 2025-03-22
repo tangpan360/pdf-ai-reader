@@ -62,6 +62,8 @@ export default function AssistantHistory() {
       <Head>
         <title>助手对话历史</title>
         <meta name="description" content="查看和管理助手对话历史" />
+        <link rel="icon" href="/icons/pdf-icon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.ico" />
       </Head>
 
       <header className="bg-white shadow-sm">
