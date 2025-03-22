@@ -60,8 +60,8 @@ export default function AssistantHistory() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>助手对话历史</title>
-        <meta name="description" content="查看和管理助手对话历史" />
+        <title>助手对话历史 - PDF-AI-阅读系统</title>
+        <meta name="description" content="查看和管理PDF-AI-阅读系统助手对话历史" />
         <link rel="icon" href="/icons/pdf-icon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" />
       </Head>
@@ -69,7 +69,7 @@ export default function AssistantHistory() {
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-800">助手对话历史</h1>
+            <h1 className="text-2xl font-bold text-gray-800">PDF-AI-阅读系统 - 助手对话历史</h1>
             <Link href="/" className="text-blue-500 hover:text-blue-600 font-medium">
               返回主页
             </Link>

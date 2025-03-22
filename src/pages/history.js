@@ -48,15 +48,15 @@ export default function History() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Head>
-        <title>历史记录 - PDF处理系统</title>
-        <meta name="description" content="PDF处理与展示系统历史记录" />
+        <title>历史记录 - PDF-AI-阅读系统</title>
+        <meta name="description" content="PDF-AI-阅读系统历史记录" />
         <link rel="icon" href="/icons/pdf-icon.svg" type="image/svg+xml" />
         <link rel="alternate icon" href="/favicon.ico" />
       </Head>
 
       <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-30">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-800">PDF处理系统</h1>
+          <h1 className="text-2xl font-bold text-gray-800">PDF-AI-阅读系统</h1>
           <Link href="/" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
             返回主页
           </Link>
