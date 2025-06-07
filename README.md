@@ -108,12 +108,15 @@ mkdir -p uploads output
 
 4. 启动开发服务器
 ```
-
+# 默认端口（3000）启动
 npm run dev
+
+# 或在3010端口启动
+PORT=3010 npm run dev
 ```
 
 5. 访问应用
-打开浏览器，访问 http://localhost:3000
+打开浏览器，访问 http://localhost:3000 或 http://localhost:3010（如果使用3010端口）
 
 ## 使用方法
 
